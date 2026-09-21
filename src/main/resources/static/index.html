@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>迁徙轨迹审理台</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; margin: 0; background: #f4f5f7; color: #222; }
+  header { background: #1f3a5f; color: #fff; padding: 10px 16px; display: flex; align-items: baseline; gap: 16px; }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { font-size: 12px; opacity: .8; }
+  main { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
+  .panel { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px; }
+  #mapPanel { flex: 0 0 auto; }
+  #side { flex: 1; display: flex; flex-direction: column; gap: 12px; max-height: 92vh; overflow: auto; }
+  h2 { font-size: 14px; margin: 0 0 6px; color: #1f3a5f; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #e2e2e2; padding: 3px 6px; text-align: left; white-space: nowrap; }
+  th { background: #eef2f7; }
+  button { font-size: 12px; padding: 2px 8px; cursor: pointer; }
+  .tag { display: inline-block; padding: 0 6px; border-radius: 8px; font-size: 11px; color: #fff; }
+  .MOVE { background: #2b6cb0; } .STAY { background: #c05621; }
+  .warn { color: #b91c1c; font-weight: 600; }
+  .ok { color: #15803d; }
+  #msg { font-size: 12px; min-height: 16px; color: #1f3a5f; }
+  .legend { font-size: 11px; margin-top: 6px; color: #555; }
+</style>
+</head>
+<body>
+<header>
+  <h1>迁徙轨迹审理台</h1>
+  <span>本地坐标网格（LOCAL_GRID，米）· 不下载地图 · 跨代次不计算速度 · 长空档不连线</span>
+</header>
+<main>
+  <div class="panel" id="mapPanel">
+    <svg id="map" width="900" height="620" style="background:#fbfcfe"></svg>
+    <div class="legend">
+      蓝=MOVE 橙=STAY 灰=已拒绝 · 红圈=迟到记录 橙圈=时钟回跳 · 红虚线椭圆=误差椭圆坐标系不符（禁止距离判定）·
+      长空档两端不连线（⚠ 标记）
+    </div>
+  </div>
+  <div id="side">
+    <div id="msg"></div>
+    <div class="panel">
+      <h2>设备代次</h2>
+      <table id="genTable"></table>
+    </div>
+    <div class="panel">
+      <h2>定位点（可拒绝低质量定位）</h2>
+      <table id="fixTable"></table>
+    </div>
+    <div class="panel">
+      <h2>异常识别</h2>
+      <div id="anomalyBox" style="font-size:12px"></div>
+    </div>
+    <div class="panel">
+      <h2>行为分段候选（可保留两个状态序列）</h2>
+      <div id="candBox"></div>
+    </div>
+    <div class="panel">
+      <h2>距离判定（CRS 守卫）</h2>
+      <input id="distA" type="number" placeholder="定位A" style="width:70px">
+      <input id="distB" type="number" placeholder="定位B" style="width:70px">
+      <button onclick="judgeDistance()">判定</button>
+      <span id="distOut" style="font-size:12px"></span>
+    </div>
+    <div class="panel">
+      <h2>运行记录</h2>
+      <a href="/api/export" download>导出运行记录 JSON</a>
+      <button onclick="resetAll()" style="margin-left:12px">清空数据库并重新导入复核</button>
+      <div id="actionLog" style="font-size:11px;margin-top:6px;color:#555"></div>
+    </div>
+  </div>
+</main>
+<script>
+let STATE = null;
+
+async function load() {
+  const res = await fetch('/api/state');
+  STATE = await res.json();
+  renderMap();
+  renderTables();
+}
+
+function segStateOf(fixId) {
+  const active = STATE.candidates.find(c => c.active) || STATE.candidates[0];
+  if (!active) return null;
+  const seg = STATE.segments.find(s => s.candidateId === active.id && fixId >= s.startFixId && fixId <= s.endFixId);
+  return seg ? seg.state : null;
+}
+
+function renderMap() {
+  const svg = document.getElementById('map');
+  const W = 900, H = 620, pad = 50;
+  const xs = STATE.fixes.map(f => f.x), ys = STATE.fixes.map(f => f.y);
+  const minX = Math.min(...xs) - 200, maxX = Math.max(...xs) + 200;
+  const minY = Math.min(...ys) - 200, maxY = Math.max(...ys) + 200;
+  const sx = x => pad + (x - minX) / (maxX - minX) * (W - 2 * pad);
+  const sy = y => H - pad - (y - minY) / (maxY - minY) * (H - 2 * pad);
+  const sc = (W - 2 * pad) / (maxX - minX);
+  let h = '';
+  for (let gx = Math.ceil(minX / 500) * 500; gx <= maxX; gx += 500) {
+    h += `<line x1="${sx(gx)}" y1="${pad}" x2="${sx(gx)}" y2="${H-pad}" stroke="#e5e9f0"/>`;
+    h += `<text x="${sx(gx)+2}" y="${H-pad+14}" font-size="10" fill="#888">${gx}m</text>`;
+  }
+  for (let gy = Math.ceil(minY / 500) * 500; gy <= maxY; gy += 500) {
+    h += `<line x1="${pad}" y1="${sy(gy)}" x2="${W-pad}" y2="${sy(gy)}" stroke="#e5e9f0"/>`;
+    h += `<text x="4" y="${sy(gy)+3}" font-size="10" fill="#888">${gy}m</text>`;
+  }
+  // 轨迹折线：仅连接可计算速度的相邻点，长空档/跨代/回跳处断开
+  for (const piece of STATE.pathPieces) {
+    if (piece.points.length < 2) continue;
+    const pts = piece.points.map(p => `${sx(p[0])},${sy(p[1])}`).join(' ');
+    const color = piece.generationId === 1 ? '#2b6cb0' : '#6b46c1';
+    h += `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" opacity="0.75"/>`;
+  }
+  // 长空档标记（不画线）
+  for (const s of STATE.speeds) {
+    if (s.blocked && s.blockReason === 'LONG_GAP') {
+      const a = STATE.fixes.find(f => f.id === s.fromFixId);
+      h += `<text x="${sx(a.x)+8}" y="${sy(a.y)-8}" font-size="11" fill="#b91c1c">⚠ 长缺测空档，不连线</text>`;
+    }
+  }
+  // 误差椭圆与定位点
+  const rollbackIds = new Set(STATE.clockRollbacks.map(r => r.fixId));
+  for (const f of STATE.fixes) {
+    const cx = sx(f.x), cy = sy(f.y);
+    if (f.ellipseCrs === STATE.trajectoryCrs && f.ellipseA) {
+      h += `<ellipse cx="${cx}" cy="${cy}" rx="${f.ellipseA*sc}" ry="${f.ellipseB*sc}"
+        transform="rotate(${-f.ellipseTheta} ${cx} ${cy})" fill="none" stroke="#94a3b8" stroke-dasharray="3 2"/>`;
+    } else {
+      h += `<ellipse cx="${cx}" cy="${cy}" rx="14" ry="9" fill="none" stroke="#dc2626" stroke-dasharray="4 2"/>`;
+      h += `<text x="${cx+10}" y="${cy+14}" font-size="10" fill="#dc2626">CRS≠</text>`;
+    }
+    const st = segStateOf(f.id);
+    const fill = f.rejected ? '#9ca3af' : (st === 'MOVE' ? '#2b6cb0' : '#c05621');
+    let ring = '';
+    if (f.late) ring = '<circle r="9" fill="none" stroke="#dc2626" stroke-width="2"/>';
+    else if (rollbackIds.has(f.id)) ring = '<circle r="9" fill="none" stroke="#ea580c" stroke-width="2"/>';
+    h += `<g transform="translate(${cx},${cy})">${ring}<circle r="5" fill="${fill}"/></g>`;
+    h += `<text x="${cx+7}" y="${cy-6}" font-size="10" fill="#333">#${f.id}</text>`;
+  }
+  svg.innerHTML = h;
+}
+
+function fmtTs(t) { return new Date(t * 1000).toISOString().substring(11, 19); }
+
+function renderTables() {
+  document.getElementById('genTable').innerHTML =
+    '<tr><th>代次</th><th>设备</th><th>开始</th><th>结束</th><th>边界</th><th></th></tr>' +
+    STATE.generations.map(g => `<tr><td>${g.id}</td><td>${g.deviceId}</td>
+      <td>${fmtTs(g.startedTs)}</td><td>${g.endedTs ? fmtTs(g.endedTs) : '—'}</td>
+      <td>${g.confirmed ? '<span class="ok">已确认</span>' : '<span class="warn">待确认</span>'}</td>
+      <td>${g.confirmed ? '' : `<button onclick="act('/api/generations/${g.id}/confirm')">确认边界</button>`}</td></tr>`).join('');
+
+  document.getElementById('fixTable').innerHTML =
+    '<tr><th>#</th><th>代次</th><th>时刻</th><th>x</th><th>y</th><th>HDOP</th><th>椭圆CRS</th><th>标记</th><th></th></tr>' +
+    STATE.fixes.map(f => `<tr>
+      <td>${f.id}</td><td>${f.generationId}</td><td>${fmtTs(f.deviceTs)}</td>
+      <td>${f.x}</td><td>${f.y}</td><td>${f.hdop}</td>
+      <td>${f.ellipseCrs === STATE.trajectoryCrs ? f.ellipseCrs : `<span class="warn">${f.ellipseCrs}</span>`}</td>
+      <td>${f.rejected ? '<span class="warn">已拒绝</span>' : ''}${f.late ? ' <span class="warn">迟到</span>' : ''}</td>
+      <td>${f.rejected ? '' : `<button onclick="rejectFix(${f.id})">拒绝</button>`}</td></tr>`).join('');
+
+  const rb = STATE.clockRollbacks.map(r => `时钟回跳：定位#${r.fixId}（${fmtTs(r.prevTs)} → ${fmtTs(r.deviceTs)}）`);
+  const sr = STATE.spatialReturns.map(r => `空间回返：定位#${r.fixId} 回到 #${r.earlierFixId} 附近（${r.distanceM.toFixed(0)}m）`);
+  const gaps = STATE.speeds.filter(s => s.blocked).map(s => `阻断 ${s.fromFixId}→${s.toFixId}：${s.blockReason}`);
+  document.getElementById('anomalyBox').innerHTML = [...rb, ...sr, ...gaps].map(x => `<div>· ${x}</div>`).join('');
+
+  document.getElementById('candBox').innerHTML = STATE.candidates.map(c => {
+    const segs = STATE.segments.filter(s => s.candidateId === c.id);
+    return `<div style="margin-bottom:8px">
+      <b>${c.name}</b>（参数版本 v${c.paramVersionId}）
+      ${c.active ? '<span class="tag MOVE">当前显示</span>' : `<button onclick="act('/api/candidates/${c.id}/activate')">设为显示</button>`}
+      ${c.retained ? '<span class="tag STAY">已保留</span>' : `<button onclick="act('/api/candidates/${c.id}/retain')">保留候选</button>`}
+      <table><tr><th>片段</th><th>状态</th><th>定位</th><th>时间窗</th><th>代次</th><th>时长下界</th><th>时长上界</th><th>参数</th><th></th></tr>
+      ${segs.map(s => `<tr><td>${s.id}</td>
+        <td><span class="tag ${s.state}">${s.state}</span></td>
+        <td>#${s.startFixId}–#${s.endFixId}</td>
+        <td>${fmtTs(s.startTs)}–${fmtTs(s.endTs)}</td><td>${s.generationId}</td>
+        <td>${s.durationLowerSec}s</td><td>${s.durationUpperSec}s</td><td>v${s.paramVersionId}</td>
+        <td><button onclick="adjust(${s.id},'${s.state === 'MOVE' ? 'STAY' : 'MOVE'}')">改为${s.state === 'MOVE' ? 'STAY' : 'MOVE'}</button></td></tr>`).join('')}
+      </table></div>`;
+  }).join('');
+
+  document.getElementById('actionLog').innerHTML =
+    STATE.reviewActions.map(a => `<div>#${a.id} [${a.type}] ${a.payload}</div>`).join('') || '（暂无审理动作）';
+}
+
+async function act(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) { document.getElementById('msg').textContent = '操作失败：' + res.status; return; }
+  await load();
+}
+function rejectFix(id) { act(`/api/fixes/${id}/reject`, { reason: '人工判定低质量' }); }
+function adjust(id, state) { act(`/api/segments/${id}/adjust`, { state }); }
+async function resetAll() {
+  if (!confirm('确认清空数据库并重新导入固定 fixture？')) return;
+  await act('/api/reset');
+  document.getElementById('msg').textContent = '已清空并重新导入，可重新复核。';
+}
+async function judgeDistance() {
+  const a = document.getElementById('distA').value, b = document.getElementById('distB').value;
+  const res = await fetch(`/api/distance?a=${a}&b=${b}`);
+  const out = document.getElementById('distOut');
+  if (res.status === 409) { out.innerHTML = '<span class="warn">拒绝：误差椭圆坐标系与轨迹坐标系不一致，禁止距离判定</span>'; return; }
+  const data = await res.json();
+  out.innerHTML = res.ok ? `<span class="ok">距离 = ${data.distanceMeters.toFixed(1)} m</span>` : '<span class="warn">参数错误</span>';
+}
+load();
+</script>
+</body>
+</html>
