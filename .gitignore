@@ -34,3 +34,7 @@ coverage/
 .vite/
 .turbo/
 *.tsbuildinfo
+
+# --- Spring Boot local SQLite databases ---
+data/
+*.db

@@ -1,0 +1,92 @@
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f5f7f8;
+  color: #172126;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  padding: 18px 24px;
+  background: #12302c;
+  color: #f3f8f6;
+}
+h1, h2 { margin: 0; }
+h1 { font-size: 24px; }
+h2 { font-size: 17px; }
+.topbar p { margin: 6px 0 0; color: #c6d6d2; font-size: 13px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+button, select {
+  border: 1px solid #8fb0a9;
+  border-radius: 8px;
+  background: #e8f3f0;
+  color: #12302c;
+  padding: 8px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+button.secondary, select { background: #fff; }
+button:hover { filter: brightness(0.97); }
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 16px;
+  padding: 16px;
+}
+.panel {
+  background: #fff;
+  border: 1px solid #d8e1df;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(18,48,44,.06);
+}
+.panel-title { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+#map-container { margin-top: 12px; border: 1px solid #d8e1df; border-radius: 10px; overflow: hidden; }
+#map { display: block; width: 100%; height: calc(100vh - 240px); min-height: 520px; background: #fbfcfc; }
+.grid-line { stroke: #e7eceb; stroke-width: 1; }
+.axis-label { fill: #62736f; font-size: 12px; }
+.path { fill: none; stroke: #347d70; stroke-width: 3; stroke-linecap: round; }
+.path.moving { stroke: #2e7d64; }
+.path.stay { stroke: #8c6f1f; stroke-dasharray: 5 4; }
+.path.uncertain { stroke: #6f7d86; stroke-dasharray: 2 5; }
+.barrier { stroke: #b54b4b; stroke-width: 2; stroke-dasharray: 8 6; opacity: .55; }
+.ellipse { fill: rgba(52,125,112,.10); stroke: #347d70; stroke-width: 1.2; }
+.ellipse.bad { fill: rgba(181,75,75,.12); stroke: #b54b4b; }
+.fix { stroke: #fff; stroke-width: 2; }
+.fix.ACCEPTED { fill: #2e7d64; }
+.fix.REVIEW { fill: #d39a26; }
+.fix.REJECTED { fill: #b54b4b; }
+.fix.clock { stroke: #172126; }
+.fix-label { font-size: 11px; fill: #263431; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.speed-label { font-size: 11px; fill: #17493f; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.blocked-label { font-size: 11px; fill: #9c3434; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.warnings { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.warning { background: #fff5e8; border: 1px solid #efd1aa; color: #6d4413; border-radius: 8px; padding: 7px 9px; font-size: 13px; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; color: #42514e; font-size: 13px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.legend .accepted { background: #2e7d64; }
+.legend .review { background: #d39a26; }
+.legend .rejected { background: #b54b4b; }
+.legend .moving { background: #2e7d64; }
+.legend .stay { background: #8c6f1f; }
+.legend .uncertain { background: #6f7d86; }
+.legend .blocked { background: #b54b4b; border-radius: 0; }
+.side-panel label { display: block; margin: 12px 0 6px; font-size: 13px; color: #4e5f5b; }
+.tabs { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+.tabs button { padding: 6px 9px; font-size: 13px; }
+.tabs button.active { background: #12302c; color: #fff; }
+.detail-list { display: flex; flex-direction: column; gap: 9px; max-height: calc(100vh - 270px); overflow: auto; padding-right: 3px; }
+.card { border: 1px solid #d8e1df; border-radius: 10px; padding: 10px; background: #fff; }
+.card-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.quality { font-size: 12px; color: #526460; }
+.meta { margin: 6px 0; color: #42514e; font-size: 12px; line-height: 1.45; }
+.warnings-small { color: #8a4b18; font-size: 12px; line-height: 1.4; margin: 6px 0; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.card-actions button { padding: 6px 8px; font-size: 12px; }
+.state-select { margin-left: 6px; padding: 5px; }
+.badge { display: inline-block; border-radius: 999px; background: #e8f3f0; color: #245d54; padding: 3px 8px; font-size: 12px; margin-left: 4px; }
+.badge.kept { background: #dff0dd; color: #226325; }

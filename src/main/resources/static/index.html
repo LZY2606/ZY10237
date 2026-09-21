@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>迁徙轨迹审理台</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>迁徙轨迹审理台</h1>
+      <p id="case-meta">正在读取固定 fixture…</p>
+    </div>
+    <div class="actions">
+      <button id="retain-button" type="button">保留两个状态序列候选</button>
+      <button id="reset-button" type="button" class="secondary">清空并重导复核</button>
+      <button id="export-button" type="button" class="secondary">导出运行记录 JSON</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel map-panel">
+      <div class="panel-title">
+        <h2>本地坐标网格</h2>
+        <div id="candidate-badges"></div>
+      </div>
+      <div id="warning-list" class="warnings"></div>
+      <div id="map-container">
+        <svg id="map" viewBox="0 0 1000 700" role="img" aria-label="轨迹、误差椭圆、速度与行为状态"></svg>
+      </div>
+      <div class="legend">
+        <span><i class="accepted"></i>有效定位</span>
+        <span><i class="review"></i>待审理</span>
+        <span><i class="rejected"></i>已拒绝</span>
+        <span><i class="moving"></i>移动</span>
+        <span><i class="stay"></i>停留</span>
+        <span><i class="uncertain"></i>不确定</span>
+        <span><i class="blocked"></i>受保护隔断</span>
+      </div>
+    </section>
+
+    <aside class="panel side-panel">
+      <h2>审理清单</h2>
+      <label for="candidate-select">状态序列候选</label>
+      <select id="candidate-select">
+        <option value="CANDIDATE-A-ACCEL">候选 A：加速度摘要</option>
+        <option value="CANDIDATE-B-SPATIAL">候选 B：空间 / 误差椭圆</option>
+      </select>
+      <div class="tabs">
+        <button data-tab="fixes" class="active">定位</button>
+        <button data-tab="segments">分段</button>
+        <button data-tab="edges">速度与隔断</button>
+        <button data-tab="trace">追溯</button>
+      </div>
+      <div id="detail-list" class="detail-list"></div>
+    </aside>
+  </main>
+
+  <template id="fix-template">
+    <article class="card fix-card">
+      <div class="card-head"><strong></strong><span class="quality"></span></div>
+      <p class="meta"></p>
+      <p class="warnings-small"></p>
+      <div class="card-actions"></div>
+    </article>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
